@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>LagerTrack · Scan & Rückgabe</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F2F0EA; --surface:#FFFFFF; --border:#D4D0C8; --border2:#C5C1B8;
+  --text:#1C1A17; --text2:#6A6760; --text3:#A8A5A0;
+  --green:#166534; --green-bg:#DCFCE7;
+  --amber:#92400E; --amber-bg:#FEF3C7;
+  --red:#991B1B; --red-bg:#FEE2E2;
+  --blue:#1D4ED8; --blue-bg:#DBEAFE;
+  --purple:#6D28D9; --purple-bg:#EDE9FE;
+  --r:10px; --sh:0 2px 8px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg)}
+body{font-family:'IBM Plex Sans',sans-serif;color:var(--text);font-size:14px;line-height:1.5}
+.header{background:var(--text);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.header-logo{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500}
+.header-sub{font-size:10px;opacity:.4;letter-spacing:.1em;text-transform:uppercase;margin-top:1px}
+.hstatus{margin-left:auto;font-size:10px;display:flex;align-items:center;gap:5px;opacity:.6}
+.hdot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.wrap{max-width:500px;margin:0 auto;padding:16px}
+
+/* Search / scan bar */
+.search-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px;box-shadow:var(--sh)}
+.search-wrap svg{width:16px;height:16px;color:var(--text3);flex-shrink:0}
+.search-wrap input{border:none;background:none;font:15px 'IBM Plex Sans',sans-serif;color:var(--text);outline:none;flex:1}
+.search-wrap input::placeholder{color:var(--text3)}
+.search-clr{font-size:18px;color:var(--text3);cursor:pointer;padding:2px;line-height:1}
+.search-clr:hover{color:var(--text)}
+
+/* Scan buttons - big for mobile */
+.scan-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}
+.scan-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 12px;cursor:pointer;transition:all .15s;text-align:center;-webkit-tap-highlight-color:transparent;user-select:none}
+.scan-card:hover,.scan-card:active{border-color:var(--text);transform:scale(.98);box-shadow:var(--sh)}
+.sc-icon{font-size:28px;margin-bottom:6px}
+.sc-name{font-size:12px;font-weight:600;line-height:1.3;margin-bottom:3px}
+.sc-id{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);margin-bottom:6px}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:500;white-space:nowrap}
+.bdot{width:5px;height:5px;border-radius:50%}
+.b-green{background:var(--green-bg);color:var(--green)}.b-green .bdot{background:var(--green)}
+.b-amber{background:var(--amber-bg);color:var(--amber)}.b-amber .bdot{background:var(--amber)}
+.b-red{background:var(--red-bg);color:var(--red)}.b-red .bdot{background:var(--red)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-purple{background:var(--purple-bg);color:var(--purple)}
+
+/* Detail panel */
+.detail-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--sh);margin-bottom:14px;display:none}
+.detail-panel.show{display:block}
+.dp-head{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:10px}
+.dp-icon{font-size:28px}
+.dp-title{font-size:15px;font-weight:600;line-height:1.2}
+.dp-id{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
+.dp-close{margin-left:auto;width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text2)}
+.dp-body{padding:14px 16px}
+.dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px}
+.dp-cell{background:var(--bg);border-radius:7px;padding:8px 10px;border:1px solid var(--border)}
+.dp-label{font-size:10px;color:var(--text3);margin-bottom:2px}
+.dp-val{font-size:12px;font-weight:500}
+.dp-cell.span2{grid-column:span 2}
+
+/* Reservations mini list */
+.res-mini{margin-bottom:14px}
+.res-mini-title{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:7px;font-weight:500}
+.res-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px}
+.res-row:last-child{border-bottom:none}
+.res-dot{width:3px;border-radius:2px;align-self:stretch;background:var(--amber);flex-shrink:0}
+.res-info{flex:1}
+.res-name{font-weight:600;font-size:12px;margin-bottom:1px}
+.res-meta{color:var(--text2)}
+
+/* Action buttons - large for mobile */
+.actions{display:flex;flex-direction:column;gap:8px}
+.act-btn{width:100%;padding:14px;border-radius:10px;border:none;font:600 14px 'IBM Plex Sans',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-tap-highlight-color:transparent}
+.act-btn:disabled{opacity:.45;cursor:default}
+.act-primary{background:var(--text);color:#fff}
+.act-primary:hover:not(:disabled){background:#333}
+.act-danger{background:var(--red-bg);color:var(--red);border:1px solid #fca5a5}
+.act-danger:hover:not(:disabled){background:#fecaca}
+.act-ghost{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.act-ghost:hover{background:var(--surface)}
+
+/* Confirm dialog */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s}
+.confirm-overlay.open{opacity:1;pointer-events:all}
+.confirm-sheet{background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:500px;transform:translateY(20px);transition:transform .22s}
+.confirm-overlay.open .confirm-sheet{transform:translateY(0)}
+.cs-title{font-size:16px;font-weight:600;margin-bottom:6px}
+.cs-body{font-size:13px;color:var(--text2);margin-bottom:16px}
+.cs-form{margin-bottom:14px}
+.cs-label{font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;display:block}
+.cs-input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font:13px 'IBM Plex Sans',sans-serif;color:var(--text);outline:none;margin-bottom:8px}
+.cs-input:focus{border-color:var(--text)}
+select.cs-input{-webkit-appearance:none}
+.cs-btns{display:flex;gap:8px}
+.cs-btns .act-btn{flex:1;padding:12px}
+
+/* Spinner */
+.spin{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none}
+.spin.show{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--text);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;z-index:200;transition:transform .22s;white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{background:#166534}
+.toast.err{background:#991b1b}
+
+/* Empty / loading */
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3)}
+.empty-state div:first-child{font-size:40px;margin-bottom:8px}
+.loading-state{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px;color:var(--text3);font-size:12px}
+.ls{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--text);border-radius:50%;animation:spin .65s linear infinite}
+
+/* Filter pills */
+.filter-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.fp{padding:5px 12px;border-radius:20px;border:1px solid var(--border);font-size:11px;cursor:pointer;color:var(--text2);background:var(--surface);font-family:'IBM Plex Sans',sans-serif;transition:all .12s}
+.fp.active{background:var(--text);color:#fff;border-color:var(--text)}
+
+/* Section label */
+.section-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);font-weight:500;margin-bottom:8px}
+
+/* Error state */
+.error-banner{background:var(--red-bg);border:1px solid #fca5a5;border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;color:var(--red)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-logo">LagerTrack</div>
+    <div class="header-sub">Scan &amp; Rückgabe</div>
+  </div>
+  <div class="hstatus"><div class="hdot" id="hdot" style="background:#ef4444"></div><span id="hstatus-txt">Verbinde…</span></div>
+</div>
+
+<div class="wrap">
+  <div id="error-wrap"></div>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="search-in" placeholder="ID oder Name eingeben…" oninput="handleSearch(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+    <span class="search-clr" id="search-clr" onclick="clearSearch()" style="display:none">✕</span>
+  </div>
+
+  <!-- Detail Panel (shown after "scan") -->
+  <div class="detail-panel" id="detail-panel">
+    <div class="dp-head">
+      <span class="dp-icon" id="dp-icon"></span>
+      <div><div class="dp-title" id="dp-title"></div><div class="dp-id" id="dp-id"></div></div>
+      <button class="dp-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="dp-body">
+      <div class="dp-grid" id="dp-grid"></div>
+      <div class="res-mini" id="dp-res" style="display:none">
+        <div class="res-mini-title">Reservierungen</div>
+        <div id="dp-res-list"></div>
+      </div>
+      <div class="actions" id="dp-actions"></div>
+    </div>
+  </div>
+
+  <!-- Inventory list -->
+  <div id="list-wrap">
+    <div class="loading-state"><div class="ls"></div>Lade Inventar…</div>
+  </div>
+</div>
+
+<!-- Confirm Sheet (Rückgabe) -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-sheet">
+    <div class="cs-title">📥 Rückgabe bestätigen</div>
+    <div class="cs-body" id="cs-desc"></div>
+    <div class="cs-form">
+      <label class="cs-label">Zustand</label>
+      <select class="cs-input" id="cs-cond">
+        <option>Einwandfrei</option>
+        <option>Leichte Mängel</option>
+        <option>Reparatur nötig</option>
+      </select>
+      <label class="cs-label">Rückgabeort</label>
+      <input class="cs-input" id="cs-loc" placeholder="z.B. Lager A / Regal 2">
+      <label class="cs-label">Notiz (optional)</label>
+      <input class="cs-input" id="cs-note" placeholder="Bemerkungen zum Zustand…">
+    </div>
+    <div class="cs-btns">
+      <button class="act-btn act-ghost" onclick="closeConfirm()">Abbrechen</button>
+      <button class="act-btn act-primary" id="cs-confirm" onclick="doCheckin()">
+        <span class="spin" id="cs-spin"></span>
+        <span id="cs-btn-txt">Zurückgeben ✓</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Config from URL params ──
+const params=new URLSearchParams(location.search);
+let token='',base='',table='Inventar';
+try{token=atob(params.get('t')||'');}catch{}
+base=params.get('b')||'';
+table=params.get('tbl')||'Inventar';
+
+let inventory=[];
+let currentItem=null;
+let filterCat='alle';
+
+const MONTHS=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const fmtDate=s=>s?new Date(s+'T12:00:00').toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'}):'—';
+const tod=()=>new Date().toLocaleDateString('de-CH');
+
+// ── AT helpers ──
+const AT=()=>`https://api.airtable.com/v0/${base}/${encodeURIComponent(table)}`;
+const H=()=>({'Authorization':`Bearer ${token}`,'Content-Type':'application/json'});
+
+async function fetchAll(){
+  if(!token||!base){showError('Kein Airtable-Zugang konfiguriert. Bitte den Link vom Admin neu anfordern.');setStatus(false,'Kein Zugang');return;}
+  let recs=[],offset=null;
+  try{
+    do{
+      const url=AT()+'?pageSize=100'+(offset?'&offset='+offset:'');
+      const r=await fetch(url,{headers:H()});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const d=await r.json();recs=[...recs,...d.records];offset=d.offset;
+    }while(offset);
+    inventory=recs.map(mapRec);
+    setStatus(true,'Verbunden');
+    renderList();
+  }catch(e){
+    showError('Verbindung fehlgeschlagen. Bitte Seite neu laden oder Admin kontaktieren.');
+    setStatus(false,'Fehler');
+  }
+}
+
+async function patchAT(id,fields){
+  const r=await fetch(AT()+'/'+id,{method:'PATCH',headers:H(),body:JSON.stringify({fields})});
+  return r.ok;
+}
+
+function mapRec(rec){
+  const f=rec.fields;
+  let log=[],res=[];
+  try{log=JSON.parse(f.Log||'[]');}catch{}
+  try{res=JSON.parse(f.Reservierungen||'[]');}catch{}
+  return{_id:rec.id,id:f.ID||'',name:f.Name||'',cat:f.Kategorie||'',icon:f.Icon||'📦',status:f.Status||'Im Lager',location:f.Standort||'—',person:f.Person||'—',returnDate:f.Rueckgabe||'—',note:f.Notiz||'',reservations:res,log};
+}
+
+function setStatus(ok,txt){
+  document.getElementById('hdot').style.background=ok?'#22c55e':'#ef4444';
+  document.getElementById('hstatus-txt').textContent=txt;
+}
+function showError(msg){
+  document.getElementById('error-wrap').innerHTML=`<div class="error-banner">⚠ ${msg}</div>`;
+}
+
+// ── Badges ──
+function sBadge(s){
+  if(s==='Im Lager')return`<span class="badge b-green"><span class="bdot"></span>${s}</span>`;
+  if(s==='Im Einsatz')return`<span class="badge b-amber"><span class="bdot"></span>${s}</span>`;
+  if(s==='Service')return`<span class="badge b-red"><span class="bdot"></span>${s}</span>`;
+  return`<span class="badge b-blue">${s}</span>`;
+}
+function rBadge(r){
+  const now=new Date(),f=new Date(r.from+'T00:00:00'),t=new Date(r.to+'T23:59:59');
+  if(now>=f&&now<=t)return`<span class="badge b-amber"><span class="bdot"></span>Aktiv</span>`;
+  if(f>now)return`<span class="badge b-purple"><span class="bdot"></span>Kommend</span>`;
+  return`<span class="badge" style="background:#f1f0ea;color:#a8a5a0">Vergangen</span>`;
+}
+
+// ── Render list ──
+function renderList(query=''){
+  const wrap=document.getElementById('list-wrap');
+  if(!inventory.length){wrap.innerHTML='<div class="empty-state"><div>📭</div>Keine Objekte geladen.</div>';return;}
+
+  let items=inventory;
+  if(filterCat!=='alle')items=items.filter(i=>i.cat===filterCat);
+  if(query){const q=query.toLowerCase();items=items.filter(i=>i.id.toLowerCase().includes(q)||i.name.toLowerCase().includes(q)||i.location.toLowerCase().includes(q)||i.person.toLowerCase().includes(q));}
+
+  // Group by status: Im Einsatz first (most likely to scan), then Im Lager, then Service
+  const order=['Im Einsatz','Im Lager','Service'];
+  const cats=[...new Set(inventory.map(i=>i.cat))].filter(Boolean);
+
+  // Filter pills
+  let pillsHtml=`<div class="filter-pills">
+    <span class="fp ${filterCat==='alle'?'active':''}" onclick="setFilter('alle',this)">Alle (${inventory.length})</span>
+    ${cats.map(c=>`<span class="fp ${filterCat===c?'active':''}" onclick="setFilter('${c}',this)">${c} (${inventory.filter(i=>i.cat===c).length})</span>`).join('')}
+  </div>`;
+
+  if(!items.length){wrap.innerHTML=pillsHtml+'<div class="empty-state"><div>🔍</div>Keine Treffer.</div>';return;}
+
+  let html=pillsHtml;
+  order.forEach(status=>{
+    const group=items.filter(i=>i.status===status);
+    if(!group.length)return;
+    html+=`<div class="section-label">${status} (${group.length})</div>`;
+    html+=`<div class="scan-grid">`;
+    group.forEach(i=>{
+      html+=`<div class="scan-card" onclick="openItem('${i._id}')">
+        <div class="sc-icon">${i.icon}</div>
+        <div class="sc-name">${i.name.length>28?i.name.substring(0,28)+'…':i.name}</div>
+        <div class="sc-id">${i.id}</div>
+        ${sBadge(i.status)}
+      </div>`;
+    });
+    html+=`</div>`;
+  });
+  wrap.innerHTML=html;
+}
+
+function setFilter(cat,el){filterCat=cat;handleSearch(document.getElementById('search-in').value);}
+
+function handleSearch(q){
+  document.getElementById('search-clr').style.display=q?'block':'none';
+  renderList(q);
+}
+function clearSearch(){document.getElementById('search-in').value='';document.getElementById('search-clr').style.display='none';renderList();}
+
+// ── Open item detail ──
+function openItem(id){
+  currentItem=inventory.find(i=>i._id===id);
+  if(!currentItem)return;
+  document.getElementById('dp-icon').textContent=currentItem.icon;
+  document.getElementById('dp-title').textContent=currentItem.name;
+  document.getElementById('dp-id').textContent=currentItem.id;
+
+  // Info grid
+  document.getElementById('dp-grid').innerHTML=`
+    <div class="dp-cell"><div class="dp-label">Status</div><div class="dp-val">${sBadge(currentItem.status)}</div></div>
+    <div class="dp-cell"><div class="dp-label">Standort</div><div class="dp-val">${currentItem.location}</div></div>
+    <div class="dp-cell"><div class="dp-label">Bei Person</div><div class="dp-val">${currentItem.person}</div></div>
+    <div class="dp-cell"><div class="dp-label">Rückgabe geplant</div><div class="dp-val">${currentItem.returnDate}</div></div>
+    ${currentItem.note?`<div class="dp-cell span2"><div class="dp-label">Notiz</div><div class="dp-val">${currentItem.note}</div></div>`:''}
+  `;
+
+  // Reservations
+  const now=new Date();
+  const upcoming=currentItem.reservations.filter(r=>new Date(r.to+'T23:59:59')>=now).sort((a,b)=>new Date(a.from)-new Date(b.from));
+  if(upcoming.length){
+    document.getElementById('dp-res').style.display='block';
+    document.getElementById('dp-res-list').innerHTML=upcoming.map(r=>`
+      <div class="res-row">
+        <div class="res-dot"></div>
+        <div class="res-info">
+          <div class="res-name">${r.name} ${rBadge(r)}</div>
+          <div class="res-meta">📍 ${r.loc} · 👤 ${r.person}</div>
+          <div class="res-meta">📅 ${fmtDate(r.from)} – ${fmtDate(r.to)}</div>
+        </div>
+      </div>`).join('');
+  } else {
+    document.getElementById('dp-res').style.display='none';
+  }
+
+  // Action buttons based on status
+  const actions=document.getElementById('dp-actions');
+  if(currentItem.status==='Im Einsatz'){
+    actions.innerHTML=`<button class="act-btn act-primary" onclick="showConfirm()">📥 Jetzt zurückgeben</button>`;
+  } else if(currentItem.status==='Im Lager'){
+    actions.innerHTML=`<div style="background:var(--green-bg);color:var(--green);border-radius:8px;padding:12px;text-align:center;font-size:13px;font-weight:500">✓ Objekt ist im Lager — keine Aktion nötig</div>`;
+  } else {
+    actions.innerHTML=`<div style="background:var(--red-bg);color:var(--red);border-radius:8px;padding:12px;text-align:center;font-size:13px">⚙ Im Service — Rückgabe über Admin</div>`;
+  }
+
+  document.getElementById('detail-panel').classList.add('show');
+  // Scroll to panel
+  document.getElementById('detail-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function closeDetail(){
+  document.getElementById('detail-panel').classList.remove('show');
+  currentItem=null;
+}
+
+// ── Checkin ──
+function showConfirm(){
+  if(!currentItem)return;
+  document.getElementById('cs-desc').textContent=`${currentItem.icon} ${currentItem.name} (${currentItem.id}) — von: ${currentItem.person}`;
+  document.getElementById('cs-loc').value='';
+  document.getElementById('cs-note').value='';
+  document.getElementById('cs-cond').value='Einwandfrei';
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('open');}
+
+async function doCheckin(){
+  if(!currentItem)return;
+  const cond=document.getElementById('cs-cond').value;
+  const loc=document.getElementById('cs-loc').value.trim()||'Lager';
+  const note=document.getElementById('cs-note').value.trim();
+  const ns=cond.includes('Reparatur')?'Service':'Im Lager';
+  const newLog=[{d:tod(),a:'Rückgabe (Scan)',n:cond+(note?' · '+note:''),c:ns==='Im Lager'?'lg':'la'},...(currentItem.log||[])];
+
+  setLoading(true);
+  const ok=await patchAT(currentItem._id,{Status:ns,Standort:loc,Person:'—',Rueckgabe:'—',Log:JSON.stringify(newLog)});
+  setLoading(false);
+
+  if(!ok){toast('❌ Fehler beim Speichern. Bitte nochmal versuchen.',true);return;}
+
+  // Update local state
+  currentItem.status=ns;currentItem.location=loc;currentItem.person='—';currentItem.returnDate='—';currentItem.log=newLog;
+
+  closeConfirm();
+  toast(`✓ ${currentItem.name} zurückgebucht`,false);
+  closeDetail();
+  renderList(document.getElementById('search-in').value);
+}
+
+function setLoading(on){
+  document.getElementById('cs-spin').className='spin'+(on?' show':'');
+  document.getElementById('cs-btn-txt').textContent=on?'Speichern…':'Zurückgeben ✓';
+  document.getElementById('cs-confirm').disabled=on;
+}
+
+function toast(msg,err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast show'+(err?' err':' ok');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ── Handle QR code scan ──
+// QR codes encode "LAGERTRACK:ZELT-001" — read from URL hash or query
+function checkQRParam(){
+  // Support ?scan=ZELT-001 or #ZELT-001
+  const scanId=params.get('scan')||location.hash.replace('#','');
+  if(scanId){
+    const item=inventory.find(i=>i.id===scanId||i.id===decodeURIComponent(scanId));
+    if(item)openItem(item._id);
+    else{
+      // Try prefix match
+      const q=decodeURIComponent(scanId).replace('LAGERTRACK:','');
+      const found=inventory.find(i=>i.id===q);
+      if(found)openItem(found._id);
+    }
+  }
+}
+
+// ── Init ──
+fetchAll().then(checkQRParam);
+</script>
+</body>
+</html>
